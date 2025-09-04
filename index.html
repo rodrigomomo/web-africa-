@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>¡El Mundo de las Cajitas! 🎉</title>
+    <!-- Incluye Tailwind CSS para un estilo rápido y moderno -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Importa Firebase Core, Auth y Firestore para la base de datos -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, getDocs, writeBatch, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // --- CONFIGURACIÓN DE TAILWIND ---
+        // Configuración personalizada para colores y fuentes
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Comic Sans MS"', 'cursive', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: '#FFC0CB', /* Rosa Pastel */
+                        secondary: '#ADD8E6', /* Azul Celeste */
+                        accent: '#FFD700',   /* Amarillo Dorado */
+                        lila: '#9370DB', /* Nuevo color para el kit "Glow Girl" */
+                        textdark: '#4A4A4A', /* Gris oscuro para texto */
+                        textlight: '#FFFFFF', /* Blanco para texto */
+                    }
+                }
+            }
+        }
+        
+        // --- ESTILOS PERSONALIZADOS ---
+        // Estilos para efectos visuales y adaptaciones
+        const customStyles = `
+            body {
+                font-family: '"Comic Sans MS"', cursive, sans-serif;
+                color: #4A4A4A;
+                position: relative;
+                overflow-x: hidden;
+            }
+            h1, h2, h3 {
+                font-family: '"Comic Sans MS"', cursive, 'sans-serif';
+                font-weight: bold;
+            }
+            .btn-fun {
+                background-color: #FF69B4; /* Rosa Chicle */
+                color: white;
+                padding: 1rem 2rem;
+                border-radius: 9999px; /* Botones redondos */
+                font-weight: bold;
+                transition: all 0.3s ease;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                border: 3px solid #E5398B;
+                cursor: pointer;
+            }
+            .btn-fun:disabled {
+                background-color: #ccc;
+                border-color: #999;
+                cursor: not-allowed;
+            }
+            .btn-fun:hover:not(:disabled) {
+                background-color: #E5398B;
+                transform: translateY(-2px);
+                box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+            }
+            .card-product {
+                border-radius: 1.5rem;
+                overflow: hidden;
+                box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+                transition: transform 0.3s ease;
+                border: 2px solid #E0E0E0;
+                cursor: pointer;
+            }
+            .card-product:hover {
+                transform: translateY(-5px);
+            }
+            .header-bg {
+                background: linear-gradient(to right, var(--tw-colors-primary), var(--tw-colors-secondary));
+                transition: all 0.4s ease-in-out;
+                padding: 1.5rem 1.5rem;
+                height: auto;
+                overflow: hidden;
+            }
+            .header-bg.shrink {
+                padding-top: 0.2rem;
+                padding-bottom: 0.2rem;
+                height: 50px;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            }
+            .header-bg .logo-text {
+                transition: font-size 0.4s ease-in-out, transform 0.4s ease-in-out;
+            }
+            .header-bg.shrink .logo-text {
+                font-size: 1.5rem;
+                transform: translateY(-5px);
+            }
+            #navItemsWrapper {
+                transition: opacity 0.4s ease-in-out, transform 0.4s ease-in-out, visibility 0.4s;
+            }
+            .header-bg.shrink #navItemsWrapper {
+                opacity: 0;
+                pointer-events: none;
+                transform: translateY(-20px);
+                visibility: hidden;
+            }
+            #mobileMenu {
+                transition: height 0.4s ease-in-out, opacity 0.4s ease-in-out;
+            }
+            @keyframes bounceIn {
+                0% { opacity: 0; transform: scale(0.3); }
+                50% { opacity: 1; transform: scale(1.05); }
+                70% { transform: scale(0.9); }
+                100% { transform: scale(1); }
+            }
+            .animate-bounce-in {
+                animation: bounceIn 0.8s ease-out forwards;
+            }
+            .kit-content-list {
+                list-style: disc;
+                padding-left: 1.5rem;
+                text-align: left;
+                margin-top: 0.75rem;
+                margin-bottom: 1rem;
+                color: var(--tw-colors-textdark);
+            }
+            .kit-content-list li {
+                margin-bottom: 0.25rem;
+            }
+            .kit-content-title {
+                font-weight: bold;
+                margin-bottom: 0.5rem;
+                color: var(--tw-colors-textdark);
+            }
+            .card-product.bg-gradient-to-br.from-secondary.to-accent .kit-content-title,
+            .card-product.bg-gradient-to-br.from-accent.to-primary .kit-content-title,
+            .card-product.bg-gradient-to-br.from-primary.to-accent .kit-content-title {
+                color: var(--tw-colors-textdark);
+            }
+            .card-product.bg-gradient-to-br.from-secondary.to-accent .kit-content-list,
+            .card-product.bg-gradient-to-br.from-accent.to-primary .kit-content-list,
+            .card-product.bg-gradient-to-br.from-primary.to-accent .kit-content-list {
+                color: var(--tw-colors-textdark);
+            }
+            .card-product.bg-gradient-to-br.from-primary.to-secondary .kit-content-title,
+            .card-product.bg-gradient-to-br.from-primary.to-secondary .kit-content-list,
+            .card-product.bg-gradient-to-br.from-secondary.to-primary .kit-content-title,
+            .card-product.bg-gradient-to-br.from-secondary.to-primary .kit-content-list,
+            .card-product.bg-gradient-to-br.from-primary.to-lila .kit-content-title,
+            .card-product.bg-gradient-to-br.from-primary.to-lila .kit-content-list {
+                color: var(--tw-colors-textlight);
+            }
+            .hidden-section {
+                display: none;
+            }
+            #cartButtonFloat {
+                position: fixed;
+                top: 2rem;
+                right: 2rem;
+                z-index: 100;
+                background-color: #FF69B4;
+                color: white;
+                padding: 1rem 1.5rem;
+                border-radius: 9999px;
+                font-weight: bold;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+                transition: transform 0.3s ease, background-color 0.3s ease;
+            }
+            #cartButtonFloat:hover {
+                background-color: #E5398B;
+                transform: translateY(-2px) scale(1.05);
+            }
+            #cartItemCount.bounce {
+                animation: pop 0.5s ease-in-out;
+                transform-origin: center;
+            }
+            @keyframes pop {
+                0% { transform: scale(1); color: #fff; }
+                50% { transform: scale(1.25); color: #FFD700; }
+                100% { transform: scale(1); color: #fff; }
+            }
+            .add-to-cart-message {
+                position: fixed;
+                top: 6rem;
+                right: 1rem;
+                transform: translateX(120%);
+                background-color: #4CAF50;
+                color: white;
+                padding: 1rem 1.5rem;
+                border-radius: 9999px;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+                z-index: 110;
+                transition: transform 0.5s ease-in-out;
+                font-weight: bold;
+            }
+            .add-to-cart-message.show {
+                transform: translateX(0);
+            }
+            body::before, body::after {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-image: radial-gradient(circle, #fff 1px, transparent 1px);
+                background-size: 50px 50px;
+                animation: move-stars 200s linear infinite;
+                z-index: -10;
+                opacity: 0.8;
+            }
+            body::after {
+                background-size: 70px 70px;
+                animation: move-stars 300s linear infinite;
+                transform: rotate(45deg);
+                opacity: 0.5;
+            }
+            @keyframes move-stars {
+                from { background-position: 0 0; }
+                to { background-position: 5000px 5000px; }
+            }
+            .modal {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.5);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 1000;
+                opacity: 0;
+                visibility: hidden;
+                transition: opacity 0.3s ease, visibility 0.3s ease;
+            }
+            .modal.show {
+                opacity: 1;
+                visibility: visible;
+            }
+            .modal-content {
+                background-color: white;
+                padding: 2rem;
+                border-radius: 2rem;
+                max-width: 90%;
+                max-height: 90%;
+                overflow-y: auto;
+                transform: translateY(-50px);
+                transition: transform 0.3s ease;
+                position: relative;
+            }
+            .modal.show .modal-content {
+                transform: translateY(0);
+            }
+            .close-btn {
+                position: absolute;
+                top: 1.5rem;
+                right: 1.5rem;
+                font-size: 2rem;
+                line-height: 1;
+                font-weight: bold;
+                color: #ccc;
+                cursor: pointer;
+                transition: color 0.2s;
+            }
+            .close-btn:hover {
+                color: #FF69B4;
+            }
+            .remove-from-cart-btn:hover svg {
+                color: #EF4444;
+                transform: scale(1.1);
+            }
+            .remove-from-cart-btn svg {
+                transition: transform 0.2s ease, color 0.2s ease;
+            }
+        `;
+
+        // Crea un elemento <style> y le añade los estilos personalizados
+        const styleSheet = document.createElement("style");
+        styleSheet.type = "text/css";
+        styleSheet.innerText = customStyles;
+        document.head.appendChild(styleSheet);
+
+        // --- INICIALIZACIÓN Y AUTENTICACIÓN DE FIREBASE ---
+        // Variables globales proporcionadas por el entorno
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+
+        let app;
+        let auth;
+        let db;
+        let userId = null;
+        let isAuthReady = false;
+
+        // Verifica si la configuración de Firebase es válida
+        if (Object.keys(firebaseConfig).length > 0) {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+
+            // Escucha los cambios en el estado de autenticación
+            onAuthStateChanged(auth, async (user) => {
+                isAuthReady = true;
+                if (user) {
+                    userId = user.uid;
+                    console.log("Usuario autenticado con ID:", userId);
+                    // Configura los listeners una vez que el usuario esté listo
+                    setupProductListener();
+                    setupCartListener();
+                } else {
+                    console.error("No se pudo iniciar sesión. La aplicación no funcionará correctamente.");
+                }
+                
+                // Muestra el ID del usuario en la página
+                const userIdDisplay = document.getElementById('user-id-display');
+                if (userIdDisplay && userId) {
+                    userIdDisplay.textContent = `Tu ID mágica: ${userId}`;
+                }
+            });
+
+            // Intenta iniciar sesión con el token personalizado si está disponible, si no, anónimamente
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                signInWithCustomToken(auth, __initial_auth_token)
+                    .then(() => {
+                        console.log("Sesión iniciada con token personalizado.");
+                    })
+                    .catch((error) => {
+                        console.error("Error al iniciar sesión con token personalizado:", error);
+                    });
+            } else {
+                signInAnonymously(auth)
+                    .then(() => {
+                        console.log("Sesión anónima iniciada.");
+                    })
+                    .catch((error) => {
+                        console.error("Error al iniciar sesión anónimamente:", error);
+                    });
+            }
+
+            // Establece el nivel de registro para depuración de Firestore
+            setLogLevel('Debug');
+        } else {
+            console.error("Configuración de Firebase no válida.");
+        }
+        
+        // --- SELECCIÓN DE ELEMENTOS DEL DOM ---
+        const mainHeader = document.getElementById('mainHeader');
+        const cartButtonFloat = document.getElementById('cartButtonFloat');
+        const cartItemCountElement = document.getElementById('cartItemCount');
+        const productsGrid = document.getElementById('products-grid');
+        const loadingMessage = document.getElementById('loading-message');
+        const menuButton = document.getElementById('menuButton');
+        const mobileMenu = document.getElementById('mobileMenu');
+        
+        // Modales
+        const productModal = document.getElementById('productModal');
+        const cartModal = document.getElementById('cartModal');
+        // Nuevo: Modal del formulario de pago
+        const checkoutFormModal = document.getElementById('checkoutFormModal');
+
+        // Elementos del modal de producto
+        const productDetailImage = document.getElementById('product-detail-image');
+        const productDetailName = document.getElementById('product-detail-name');
+        const productDetailPrice = document.getElementById('product-detail-price');
+        const productDetailDescription = document.getElementById('product-detail-description');
+        const productOptionsContainer = document.getElementById('product-options-container');
+        const productOptionsSelect = document.getElementById('product-options');
+        const addToCartDetailBtn = document.getElementById('addToCartDetailBtn');
+        const closeProductModalBtn = document.getElementById('closeProductModal');
+
+        // Elementos del modal del carrito
+        const cartItemsContainer = document.getElementById('cart-items-container');
+        const cartTotalAmount = document.getElementById('cart-total-amount');
+        const emptyCartMessage = document.getElementById('empty-cart-message');
+        const checkoutBtn = document.getElementById('checkoutBtn');
+        const clearCartBtn = document.getElementById('clearCartBtn');
+        
+        // Nuevo: Formulario de pago y sus elementos
+        const checkoutForm = document.getElementById('checkoutForm');
+        
+        // Elemento del mensaje de confirmación (toast)
+        const addToCartToast = document.getElementById('addToCartToast');
+
+        // --- VARIABLES GLOBALES (Ahora con los datos de Firebase) ---
+        let allProducts = [];
+        let cartItems = {}; // Usamos un objeto para un acceso más rápido
+        let currentProduct = null;
+
+        // --- FUNCIONES LÓGICAS ---
+
+        // Muestra u oculta un modal
+        function toggleModal(modal, show) {
+            if (show) {
+                modal.classList.add('show');
+                document.body.style.overflow = 'hidden';
+            } else {
+                modal.classList.remove('show');
+                document.body.style.overflow = '';
+            }
+        }
+        
+        // Renderiza las tarjetas de producto desde los datos de Firestore
+        function renderProducts(products) {
+            productsGrid.innerHTML = '';
+            if (products.length === 0) {
+                productsGrid.innerHTML = '<p class="text-center text-gray-500 text-lg">Aún no hay kits mágicos. ¡Vuelve pronto!</p>';
+            }
+            products.forEach(product => {
+                const card = document.createElement('div');
+                card.className = `card-product p-4 ${product.gradient} text-${product.textColor}`;
+                card.dataset.kitId = product.id;
+                card.innerHTML = `
+                    <img src="${product.image}" alt="${product.name}" class="w-full h-48 object-cover rounded-2xl mb-4 shadow-md border-2 border-textlight">
+                    <div class="p-4 text-center">
+                        <h3 class="text-3xl font-bold mb-2" data-name="${product.name}" data-price="${product.basePrice}">${product.name}</h3>
+                        <p class="text-lg mb-4">${product.descriptionShort}</p>
+                        <h4 class="kit-content-title">Contenido del Kit:</h4>
+                        <ul class="kit-content-list text-left mx-auto">
+                            ${product.content.map(item => `<li>${item}</li>`).join('')}
+                        </ul>
+                        <div class="flex flex-col items-center">
+                            <span class="text-4xl font-extrabold text-${product.accentColor} mb-4">Desde €${product.basePrice.toFixed(2)}</span>
+                            <button class="view-details-btn btn-fun">Ver Opciones</button>
+                        </div>
+                    </div>
+                `;
+                productsGrid.appendChild(card);
+            });
+            loadingMessage.classList.add('hidden');
+            productsGrid.classList.remove('hidden');
+        }
+
+        // Muestra los detalles de un producto en el modal
+        function showProductDetails(kitId) {
+            const product = allProducts.find(p => p.id === kitId);
+            if (!product) return;
+            currentProduct = product; // Almacena el producto seleccionado
+
+            productDetailImage.src = product.image;
+            productDetailImage.alt = product.name;
+            productDetailName.textContent = product.name;
+            productDetailDescription.textContent = product.descriptionFull;
+
+            // Actualiza el precio inicial del modal con el precio base
+            productDetailPrice.textContent = `€${product.basePrice.toFixed(2)}`;
+
+            productOptionsSelect.innerHTML = '<option value="" disabled selected>-- Elige una opción --</option>';
+            if (product.options && product.options.length > 0) {
+                productOptionsContainer.classList.remove('hidden');
+                product.options.forEach(option => {
+                    const optionElement = document.createElement('option');
+                    optionElement.value = option.name;
+                    optionElement.textContent = `${option.name} (+€${option.priceAdjustment.toFixed(2)})`;
+                    optionElement.dataset.price = option.priceAdjustment;
+                    productOptionsSelect.appendChild(optionElement);
+                });
+                addToCartDetailBtn.disabled = true;
+            } else {
+                productOptionsContainer.classList.add('hidden');
+                addToCartDetailBtn.disabled = false;
+            }
+            toggleModal(productModal, true);
+        }
+        
+        // Añade un kit al carrito en Firestore
+        async function addToCart(item) {
+            if (!userId) {
+                console.error("No se ha podido añadir al carrito: el usuario no está autenticado.");
+                return;
+            }
+            try {
+                // Genera un ID único para el documento del carrito
+                const cartDocRef = doc(db, `artifacts/${appId}/users/${userId}/cart/${item.id}`);
+                await setDoc(cartDocRef, item, { merge: true });
+                showToast(`¡"${item.name}" añadido a tu cesta!`);
+            } catch (e) {
+                console.error("Error al añadir al carrito:", e);
+            }
+        }
+        
+        // Elimina un kit del carrito de Firestore
+        async function removeFromCart(itemId) {
+            if (!userId) return;
+            try {
+                const itemDocRef = doc(db, `artifacts/${appId}/users/${userId}/cart/${itemId}`);
+                await deleteDoc(itemDocRef);
+            } catch (e) {
+                console.error("Error al eliminar del carrito:", e);
+            }
+        }
+
+        // Renderiza los kits en el modal del carrito desde el estado local
+        function renderCart() {
+            cartItemsContainer.innerHTML = '';
+            let total = 0;
+            const itemsArray = Object.values(cartItems);
+
+            if (itemsArray.length === 0) {
+                emptyCartMessage.style.display = 'block';
+            } else {
+                emptyCartMessage.style.display = 'none';
+                itemsArray.forEach(item => {
+                    const itemElement = document.createElement('div');
+                    itemElement.className = 'cart-item flex justify-between items-center py-2 border-b last:border-b-0 border-gray-200';
+                    itemElement.innerHTML = `
+                        <span class="font-bold text-textdark">${item.name}</span>
+                        <div class="flex items-center gap-4">
+                            <span class="text-xl font-semibold text-primary">€${(item.price).toFixed(2)}</span>
+                            <button data-item-id="${item.id}" class="remove-from-cart-btn text-red-500 hover:text-red-700 transition duration-200">
+                                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10-10-4.477-10-10 4.477-10 10-10zm-3 5h6c.552 0 1 .448 1 1s-.448 1-1 1H9c-.552 0-1-.448-1-1s.448-1 1-1zm3 2c-2.485 0-4.5 2.015-4.5 4.5s2.015 4.5 4.5 4.5 4.5-2.015 4.5-4.5-2.015-4.5-4.5-4.5zM12 11c.552 0 1 .448 1 1v2c0 .552-.448 1-1 1s-1-.448-1-1v-2c0-.552.448-1 1-1z"/></svg>
+                            </button>
+                        </div>
+                    `;
+                    cartItemsContainer.appendChild(itemElement);
+                    total += item.price;
+                });
+                // Agrega listeners a los botones de eliminar después de renderizar
+                document.querySelectorAll('.remove-from-cart-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const itemId = e.currentTarget.dataset.itemId;
+                        removeFromCart(itemId);
+                    });
+                });
+            }
+            cartTotalAmount.textContent = `€${total.toFixed(2)}`;
+        }
+        
+        // Actualiza el contador del carrito flotante
+        function updateCartCount() {
+            let totalItemsInCart = Object.keys(cartItems).length;
+            cartItemCountElement.textContent = totalItemsInCart;
+            cartItemCountElement.classList.add('bounce');
+            setTimeout(() => {
+                cartItemCountElement.classList.remove('bounce');
+            }, 500);
+        }
+
+        // Muestra un mensaje de confirmación tipo "toast"
+        function showToast(message) {
+            addToCartToast.textContent = message;
+            addToCartToast.classList.add('show');
+            setTimeout(() => {
+                addToCartToast.classList.remove('show');
+            }, 2000);
+        }
+
+        // --- MANEJO DE DATOS FIREBASE ---
+        
+        // Listener para la colección de productos
+        async function setupProductListener() {
+            if (!isAuthReady || !db) return;
+
+            const productsColRef = collection(db, `artifacts/${appId}/public/data/products`);
+            
+            // Si la colección está vacía, la llenamos con datos de ejemplo
+            const productsSnapshot = await getDocs(productsColRef);
+            if (productsSnapshot.empty) {
+                 console.log("Colección de productos vacía. Llenando con datos de ejemplo...");
+                 const initialProducts = [
+                     { id: 'kit-regla-v1', name: "Kit Primera Regla Niñas (V1)", basePrice: 19.99, image: "https://placehold.co/400x300/FF69B4/FFFFFF?text=Kit+Primera+Regla+1", descriptionShort: "¡Para ese momento especial!", descriptionFull: "¡Este es el kit más mágico para un día muy importante! Viene con deliciosos chocolates para hacer ese momento más dulce, compresas de tela que son super cómodas y ecológicas, una bolsa impermeable para llevarlas y un calendario genial para que puedas apuntar todo. ¡Un kit lleno de cariño y confianza!", content: ['Chocolates', 'Compresas de tela', 'Bolsa impermeable', 'Calendario para la menstruación'], options: [{name: 'Con compresas de tela', priceAdjustment: 0}, {name: 'Con toallitas húmedas', priceAdjustment: 2.50}, {name: 'Con toallitas húmedas y tampón', priceAdjustment: 5.00}], gradient: "bg-gradient-to-br from-primary to-secondary", textColor: "textlight", accentColor: "accent" },
+                     { id: 'kit-regla-v2', name: "Kit Primera Regla Niñas (V2)", basePrice: 15.99, image: "https://placehold.co/400x300/ADD8E6/FFFFFF?text=Kit+Primera+Regla+2", descriptionShort: "Una alternativa dulce y práctica.", descriptionFull: "Una alternativa dulce y práctica para ese gran momento. Este kit incluye compresas normales y una selección de chuches para que cada día sea un poco más feliz.", content: ['Chocolates', 'Compresas normales', 'Bolsa impermeable', 'Calendario para la menstruación'], options: [{name: 'Con compresas normales', priceAdjustment: 0}, {name: 'Con tampón', priceAdjustment: 3.50}], gradient: "bg-gradient-to-br from-secondary to-accent", textColor: "textdark", accentColor: "primary" },
+                     { id: 'kit-campamento', name: "Kit de Campamento", basePrice: 14.50, image: "https://placehold.co/400x300/FFD700/FFFFFF?text=Kit+Campamento", descriptionShort: "¡Ideal para tus aventuras al aire libre!", descriptionFull: "¡Prepara tu mochila para la aventura con este kit de campamento! Lleno de tiritas para las pequeñas heridas de explorador, deliciosas chuches, chocolates para tener energía y algún fruto seco para el camino. ¡Ideal para tus aventuras al aire libre y para que no te falte de nada!", content: ['Tiritas', 'Chuches', 'Chocolates', 'Algún fruto seco'], options: [{name: 'Con chuches y frutos secos', priceAdjustment: 0}, {name: 'Con chuches y caramelos', priceAdjustment: 1.00}, {name: 'Con chocolate y frutos secos', priceAdjustment: 1.50}, {name: 'Solo con chuches', priceAdjustment: -2.00}], gradient: "bg-gradient-to-br from-accent to-primary", textColor: "textdark", accentColor: "secondary" },
+                     { id: 'kit-tu-puedes', name: "Kit Tú Puedes con Todo", basePrice: 9.00, image: "https://placehold.co/400x300/ADD8E6/FFFFFF?text=Kit+Tu+Puedes", descriptionShort: "¡Un empujón de ánimo!", descriptionFull: "¡Un empujón de ánimo en una caja! Este kit es perfecto para antes de un examen, una competencia o esos días en que todo parece difícil. Lleno de caramelos para endulzar el momento, galletas para darte fuerzas y una cartita especial que dice: 'Tú puedes con todo, ánimo, tú lo vas a conseguir'. ¡Un abrazo en forma de kit!", content: ['Caramelos', 'Cartita motivadora', 'Galletas'], options: [{name: 'Con caramelos y galletas', priceAdjustment: 0}, {name: 'Con chuches y galletas', priceAdjustment: 1.00}, {name: 'Con chocolate y chuches', priceAdjustment: 2.00}], gradient: "bg-gradient-to-br from-secondary to-primary", textColor: "textlight", accentColor: "accent" },
+                     { id: 'kit-logros', name: "Kit de los Logros", basePrice: 11.50, image: "https://placehold.co/400x300/FFC0CB/FFFFFF?text=Kit+Logros", descriptionShort: "¡Para celebrar tus victorias!", descriptionFull: "¡A celebrar! Este kit es para celebrar cuando has logrado algo grande: aprobar un examen difícil, terminar el trimestre con buenas notas o superar un reto. Dentro encontrarás chuches, pegatinas motivadoras, una carta que dice 'Yo sabía que tú podías, ánimo', una frase motivacional y un chocolate para el brindis. ¡Porque tus logros merecen ser celebrados!", content: ['Chuches', 'Pegatinas', 'Carta motivadora', 'Frase motivacional', 'Chocolate'], options: [{name: 'Con chuches y chocolate', priceAdjustment: 0}, {name: 'Con caramelos y galletas', priceAdjustment: -1.00}, {name: 'Con chuches, caramelos y chocolate', priceAdjustment: 1.50}], gradient: "bg-gradient-to-br from-primary to-accent", textColor: "textdark", accentColor: "secondary" },
+                     { id: 'kit-relax', name: "Kit Relax Modern", basePrice: 18.00, image: "https://placehold.co/400x300/FFD700/FFFFFF?text=Kit+Relax", descriptionShort: "Un momento de calma y paz.", descriptionFull: "Para un momento de calma y paz después de una semana intensa. Este kit incluye una mascarilla facial para mimar la piel, un juguete relajante para calmar los nervios, una nota con frases positivas para que te sientas mejor y un masajeador de cabeza y cuerpo. ¡Todo lo que necesitas para un spa en casa!", content: ['Mascarilla facial', 'Juguete relajante', 'Nota con frases positivas', 'Masajeador de cabeza y cuerpo'], options: [{name: 'Con masajeador de cabeza', priceAdjustment: 0}, {name: 'Con masajeador de espalda', priceAdjustment: 2.50}, {name: 'Con juguete relajante', priceAdjustment: -1.00}], gradient: "bg-gradient-to-br from-accent to-secondary", textColor: "textlight", accentColor: "primary" },
+                     { id: 'kit-misteriosa', name: "Kit Caja Misteriosa", basePrice: 16.00, image: "https://placehold.co/400x300/FF69B4/FFFFFF?text=Caja+Misteriosa", descriptionShort: "¡Una sorpresa sin motivo!", descriptionFull: "¡Una sorpresa sin motivo, porque sí! Este kit es una caja mágica llena de misterios. Puede traer una cosa divertida y 'random' como una pegatina loca, slime o una figura kawaii, una dulce sorpresa, retos tipo 'zumbaire', un mensaje secreto y una pegatina que te recuerda que 'Hoy es tu día'. ¡La diversión está garantizada!", content: ['Cosa divertida random', 'Dulce sorpresa', 'Retos tipo "zumbaire"', 'Mensaje sorpresa', 'Pegatina'], options: [{name: 'Con slime y dulces', priceAdjustment: 0}, {name: 'Con figura kawaii y retos', priceAdjustment: 1.50}, {name: 'Con pegatina y mensaje', priceAdjustment: -2.00}], gradient: "bg-gradient-to-br from-primary to-secondary", textColor: "textdark", accentColor: "accent" },
+                     { id: 'kit-heroe', name: "Kit Mi Héroe", basePrice: 8.00, image: "https://placehold.co/400x300/ADD8E6/FFFFFF?text=Kit+Mi+Heroe", descriptionShort: "¡Para los valientes!", descriptionFull: "Para celebrar cuando fuiste valiente, por ejemplo, superaste una vacuna o pudiste hablar en público. Este kit es un reconocimiento a tu valentía. Contiene un mensaje especial que dice 'Fuiste un/a héroe', chuches para celebrarlo y un chocolate para premiar tu valor. ¡Porque los héroes también se merecen un dulce!", content: ['Mensaje: "Fuiste un/a héroe"', 'Chuches', 'Chocolate'], options: [{name: 'Con chuches y chocolate', priceAdjustment: 0}, {name: 'Con caramelos y galletas', priceAdjustment: -1.00}, {name: 'Con chuches, caramelos y chocolate', priceAdjustment: 1.50}], gradient: "bg-gradient-to-br from-secondary to-accent", textColor: "textlight", accentColor: "primary" },
+                     { id: 'kit-dia-dulce', name: "Kit Día Dulce", basePrice: 10.00, image: "https://placehold.co/400x300/FFD700/FFFFFF?text=Kit+Dia+Dulce", descriptionShort: "Cuando necesitas alegría extra.", descriptionFull: "Cuando el día necesita un extra de alegría, este es el kit perfecto. Con chuches variadas, una nota divertida con un arcoíris, un chicle o una piruleta para darle color al día y un juego rápido tipo 'encuentra la diferencia' para divertirte. ¡Es como una fiesta en una caja!", content: ['Chuches variadas', 'Nota de arcoíris', 'Chicle, piruleta o caramelo', 'Juego rápido'], options: [{name: 'Con chuches y chicles', priceAdjustment: 0}, {name: 'Con chuches y piruletas', priceAdjustment: 0.50}, {name: 'Con caramelos y galletas', priceAdjustment: -1.00}], gradient: "bg-gradient-to-br from-accent to-primary", textColor: "textdark", accentColor: "secondary" },
+                     { id: 'kit-no-me-rindo', name: "Kit No Me Rindo", basePrice: 7.50, image: "https://placehold.co/400x300/FFC0CB/FFFFFF?text=Kit+No+Me+Rindo", descriptionShort: "¡Para seguir adelante!", descriptionFull: "Para seguir adelante cuando algo no salió como esperabas pero te esforzaste al máximo. Este kit es un recordatorio de que rendirse no es una opción. Incluye una carta de apoyo muy especial y una galleta dulce para recordarte que después de la tormenta, siempre sale el sol. ¡Ánimo, tú puedes!", content: ['Carta de apoyo', 'Galleta dulce'], options: [{name: 'Con galleta dulce y chuches', priceAdjustment: 1.50}, {name: 'Con galleta dulce y chocolate', priceAdjustment: 2.00}, {name: 'Con galleta dulce, chuches y caramelos', priceAdjustment: 3.00}], gradient: "bg-gradient-to-br from-primary to-accent", textColor: "textlight", accentColor: "secondary" },
+                     { id: 'kit-dia-nublado', name: "Kit Día Nublado", basePrice: 13.00, image: "https://placehold.co/400x300/ADD8E6/FFFFFF?text=Kit+Dia+Nublado", descriptionShort: "Para cuando alguien está triste.", descriptionFull: "Cuando la lluvia se asoma en tu estado de ánimo, este kit trae un poco de sol. Contiene una chocolatina para levantar el espíritu, un chiste tonto escrito a mano, una pegatina de arcoíris para recordarte la esperanza, una nota bonita que dice 'Esto también pasará' y un slime para jugar y olvidarte de todo. ¡Un kit para sonreír!", content: ['Chocolatina', 'Chiste tonto', 'Pegatina arcoíris', 'Nota bonita', 'Slime'], options: [{name: 'Con chocolatina y slime', priceAdjustment: 0}, {name: 'Con chocolatina y chiste tonto', priceAdjustment: -1.50}, {name: 'Con chocolatina, slime y chiste tonto', priceAdjustment: 2.00}], gradient: "bg-gradient-to-br from-secondary to-primary", textColor: "textdark", accentColor: "accent" },
+                     { id: 'kit-mini-spa', name: "Kit Mini Spa", basePrice: 15.00, image: "https://placehold.co/400x300/FFD700/FFFFFF?text=Kit+Mini+Spa", descriptionShort: "¡Momento de mimos!", descriptionFull: "¡La tarde perfecta para mimarte! Este kit es ideal para los niños y niñas que quieren cuidarse y relajarse. Viene con una mascarilla facial o un bálsamo labial para estar radiante, una lima de uñas divertida, tatuajes temporales para adornar tu piel y pegatinas de cuidado personal. ¡Un día de mimos te espera!", content: ['Mascarilla facial', 'Lima de uñas divertida', 'Tatuajes temporales', 'Pegatinas de cuidado personal'], options: [{name: 'Con mascarilla facial y tatuajes', priceAdjustment: 0}, {name: 'Con bálsamo labial y pegatinas', priceAdjustment: -2.00}, {name: 'Con mascarilla facial, bálsamo labial y tatuajes', priceAdjustment: 3.50}], gradient: "bg-gradient-to-br from-accent to-secondary", textColor: "textlight", accentColor: "primary" },
+                     { id: 'kit-solo-porque-te-quiero', name: "Kit Solo Porque Te Quiero", basePrice: 22.00, image: "https://placehold.co/400x300/FF69B4/FFFFFF?text=Kit+Porque+Te+Quiero", descriptionShort: "Sin motivo, solo por amor.", descriptionFull: "Para regalar sin motivo, solo por amor y amistad. Este kit tiene una carta escrita a mano con mucho cariño, chuches con formas de corazón o las que más te gusten, una pulsera de la amistad para compartir con alguien especial y un vale por una tarde juntos. ¡El mejor regalo es el que se da con el corazón!", content: ['Carta escrita a mano', 'Chuches con formas de corazón', 'Pulsera de la amistad', 'Vale por una tarde juntos'], options: [{name: 'Con chuches y pulsera', priceAdjustment: 0}, {name: 'Con chuches y vale', priceAdjustment: 1.00}, {name: 'Con pulsera y vale', priceAdjustment: 2.00}], gradient: "bg-gradient-to-br from-primary to-secondary", textColor: "textdark", accentColor: "accent" },
+                     { id: 'kit-solo-tu', name: "Kit Solo Tú", basePrice: 17.00, image: "https://placehold.co/400x300/ADD8E6/FFFFFF?text=Kit+Solo+Tu", descriptionShort: "Un regalo para ti mismo.", descriptionFull: "Este es el kit para esos momentos en los que necesitas un regalo solo para ti, sin más. Incluye una revista para pasar el rato, un té o café especial para disfrutar, una mascarilla facial para relajarte y una notita que te recuerda: 'Relájate y disfruta'. ¡Porque tú te lo mereces!", content: ['Una revista', 'Un té o café especial', 'Una mascarilla facial', 'Una notita de ' + `'Relájate y disfruta'`], options: [{name: 'Con revista y té', priceAdjustment: 0}, {name: 'Con revista y café', priceAdjustment: 0.50}, {name: 'Con revista y mascarilla', priceAdjustment: 1.00}], gradient: "bg-gradient-to-br from-secondary to-accent", textColor: "textlight", accentColor: "primary" },
+                     { id: 'kit-glow-girl', name: "Cajita “Glow Girl” 🌙💜", basePrice: 20.50, image: "https://placehold.co/400x300/9370DB/FFFFFF?text=Glow+Girl", descriptionShort: "Diseñada para adolescentes con estilo aesthetic chic.", descriptionFull: "Diseñada para adolescentes que empiezan a buscar una identidad más personal y moderna, con un estilo aesthetic chic. Elementos estéticos: Colores: lila, blanco, negro fino y detalles metálicos en plata. Diseño: tipografía serif elegante combinada con frases inspiradoras (“Shine your way”). Extras: tarjetita holográfica con mensaje positivo, mini póster para colgar en la pared. Accesorio: collar con colgante en forma de luna o estrella minimalista.", content: ['Tarjetita holográfica con mensaje positivo', 'Mini póster para la pared', 'Collar de luna o estrella minimalista'], options: [{name: 'Con collar de luna', priceAdjustment: 0}, {name: 'Con collar de estrella', priceAdjustment: 0}], gradient: "bg-gradient-to-br from-primary to-lila", textColor: "textlight", accentColor: "textdark" }
+                 ];
+                 const batch = writeBatch(db);
+                 initialProducts.forEach(product => {
+                     const docRef = doc(productsColRef, product.id);
+                     batch.set(docRef, product);
+                 });
+                 await batch.commit();
+            }
+
+            // Escuchamos los cambios en tiempo real
+            onSnapshot(productsColRef, (snapshot) => {
+                const products = [];
+                snapshot.forEach(doc => {
+                    products.push({ id: doc.id, ...doc.data() });
+                });
+                allProducts = products;
+                renderProducts(allProducts);
+            }, (error) => {
+                console.error("Error al obtener los productos:", error);
+                productsGrid.innerHTML = '<p class="text-center text-red-500 text-lg">Hubo un error al cargar los kits. Por favor, inténtalo de nuevo.</p>';
+                loadingMessage.classList.add('hidden');
+                productsGrid.classList.remove('hidden');
+            });
+        }
+        
+        // Listener para la colección del carrito
+        function setupCartListener() {
+            if (!isAuthReady || !userId || !db) {
+                console.warn("No se puede configurar el listener del carrito. El usuario no está autenticado aún.");
+                return;
+            }
+            const cartColRef = collection(db, `artifacts/${appId}/users/${userId}/cart`);
+            onSnapshot(cartColRef, (snapshot) => {
+                cartItems = {};
+                snapshot.forEach(doc => {
+                    cartItems[doc.id] = doc.data();
+                });
+                updateCartCount();
+                renderCart();
+            }, (error) => {
+                console.error("Error al obtener el carrito:", error);
+            });
+        }
+
+        // --- EVENT LISTENERS ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Manejar la navegación con los enlaces del menú
+            document.querySelectorAll('a.nav-link[href^="#"], a.btn-fun[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const targetId = this.getAttribute('href').substring(1);
+                    const targetSection = document.getElementById(targetId);
+                    if (targetSection) {
+                        targetSection.scrollIntoView({ behavior: 'smooth' });
+                    }
+                    // Si el menú móvil está abierto, ciérralo
+                    if (!mobileMenu.classList.contains('hidden')) {
+                         mobileMenu.classList.add('hidden');
+                    }
+                });
+            });
+
+            // Abrir modal de producto al hacer clic en una tarjeta
+            productsGrid.addEventListener('click', (e) => {
+                const card = e.target.closest('.card-product');
+                if (card) {
+                    const kitId = card.dataset.kitId;
+                    showProductDetails(kitId);
+                }
+            });
+
+            // Cerrar modales con el botón de "cerrar"
+            document.querySelectorAll('.close-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    toggleModal(btn.closest('.modal'), false);
+                });
+            });
+
+            // Cerrar modales al hacer clic fuera del contenido
+            [productModal, cartModal, checkoutFormModal].forEach(modal => {
+                modal.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('modal')) {
+                        toggleModal(modal, false);
+                    }
+                });
+            });
+            
+            // Cerrar el modal del producto con el botón de "Cerrar"
+            closeProductModalBtn.addEventListener('click', () => {
+                toggleModal(productModal, false);
+            });
+            
+            // Lógica para actualizar el precio en el modal cuando se selecciona una opción
+            if (productOptionsSelect) {
+                productOptionsSelect.addEventListener('change', () => {
+                    const selectedOption = currentProduct.options.find(opt => opt.name === productOptionsSelect.value);
+                    const finalPrice = currentProduct.basePrice + (selectedOption ? selectedOption.priceAdjustment : 0);
+                    productDetailPrice.textContent = `€${finalPrice.toFixed(2)}`;
+                    addToCartDetailBtn.disabled = productOptionsSelect.value === "";
+                });
+            }
+
+            // Añadir al carrito desde el modal de producto
+            if (addToCartDetailBtn) {
+                addToCartDetailBtn.addEventListener('click', () => {
+                    if (!currentProduct) return;
+                    const selectedOption = productOptionsSelect.value;
+                    const optionDetails = currentProduct.options.find(opt => opt.name === selectedOption);
+                    
+                    // Calcula el precio final
+                    const finalPrice = currentProduct.basePrice + (optionDetails ? optionDetails.priceAdjustment : 0);
+                    
+                    const uniqueId = `${currentProduct.id}-${selectedOption.replace(/ /g, '-').toLowerCase()}`;
+                    addToCart({
+                        id: uniqueId,
+                        name: `${currentProduct.name} - ${selectedOption}`,
+                        price: finalPrice, // Usa el precio final calculado
+                        image: currentProduct.image,
+                        option: selectedOption
+                    });
+                    toggleModal(productModal, false);
+                });
+            }
+
+            // Abrir el modal del carrito
+            if (cartButtonFloat) {
+                cartButtonFloat.addEventListener('click', () => {
+                    toggleModal(cartModal, true);
+                });
+            }
+
+            // Vaciar el carrito
+            if (clearCartBtn) {
+                clearCartBtn.addEventListener('click', async () => {
+                    if (!userId) return;
+                    try {
+                        const cartColRef = collection(db, `artifacts/${appId}/users/${userId}/cart`);
+                        const cartSnapshot = await getDocs(cartColRef);
+                        const batch = writeBatch(db);
+                        cartSnapshot.forEach(doc => {
+                            batch.delete(doc.ref);
+                        });
+                        await batch.commit();
+                        showToast("¡Tu cesta ha sido vaciada!");
+                    } catch (e) {
+                        console.error("Error al vaciar el carrito:", e);
+                    }
+                });
+            }
+            
+            // --- NUEVA LÓGICA DE PAGO ---
+            
+            // Paso 1: Abrir el formulario de pago
+            if (checkoutBtn) {
+                checkoutBtn.addEventListener('click', () => {
+                    if (Object.keys(cartItems).length === 0) {
+                        showToast("Tu cesta está vacía. ¡No puedes pagar!");
+                        return;
+                    }
+                    toggleModal(cartModal, false); // Cierra el carrito
+                    toggleModal(checkoutFormModal, true); // Abre el formulario de pago
+                });
+            }
+
+            // Paso 2: Manejar el envío del formulario de pago
+            if (checkoutForm) {
+                checkoutForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    
+                    if (!userId) {
+                        console.error("Error de pago: el usuario no está autenticado.");
+                        showToast("Hubo un error con tu pedido. Por favor, inténtalo de nuevo.");
+                        return;
+                    }
+
+                    // Recolectar datos del formulario
+                    const formData = new FormData(checkoutForm);
+                    const orderData = {
+                        fullName: formData.get('fullName'),
+                        address: formData.get('address'),
+                        houseNumber: formData.get('houseNumber'),
+                        floorNumber: formData.get('floorNumber'),
+                        postalCode: formData.get('postalCode'),
+                        email: formData.get('email'),
+                        phoneNumber: formData.get('phoneNumber'),
+                        orderId: userId,
+                        timestamp: new Date().toISOString(),
+                        items: Object.values(cartItems)
+                    };
+                    
+                    // Número de teléfono de destino
+                    const avvPhoneNumber = '34665241647';
+                    
+                    // Construir el mensaje de resumen para WhatsApp
+                    let summaryMessage = `¡Hola! 👋 Tengo un nuevo pedido de "El Mundo de las Cajitas". 🎉\n\n`;
+                    summaryMessage += `--- Información del Cliente ---\n`;
+                    summaryMessage += `Nombre: ${orderData.fullName}\n`;
+                    summaryMessage += `Dirección: ${orderData.address}, Nº ${orderData.houseNumber}${orderData.floorNumber ? ', Piso ' + orderData.floorNumber : ''}\n`;
+                    summaryMessage += `C.P.: ${orderData.postalCode}\n`;
+                    summaryMessage += `Email: ${orderData.email}\n`;
+                    summaryMessage += `Teléfono: +${orderData.phoneNumber}\n\n`;
+                    
+                    summaryMessage += `--- Resumen del Pedido ---\n`;
+                    let total = 0;
+                    orderData.items.forEach(item => {
+                        summaryMessage += `- ${item.name} | €${item.price.toFixed(2)}\n`;
+                        total += item.price;
+                    });
+                    summaryMessage += `\nTotal: €${total.toFixed(2)}\n\n`;
+                    summaryMessage += `ID de la Compra: ${userId}\n`;
+                    
+                    // Codificar el mensaje para la URL
+                    const encodedMessage = encodeURIComponent(summaryMessage);
+                    const whatsappUrl = `https://wa.me/${avvPhoneNumber}?text=${encodedMessage}`;
+                    
+                    try {
+                        // Guardar el pedido en Firestore (en una nueva colección 'orders')
+                        const ordersColRef = collection(db, `artifacts/${appId}/public/data/orders`);
+                        await addDoc(ordersColRef, orderData);
+                        console.log("Pedido guardado en Firestore.");
+
+                        // Abrir el enlace de WhatsApp en una nueva pestaña
+                        window.open(whatsappUrl, '_blank');
+                        
+                        // Vaciar el carrito del usuario
+                        const cartColRef = collection(db, `artifacts/${appId}/users/${userId}/cart`);
+                        const cartSnapshot = await getDocs(cartColRef);
+                        const batch = writeBatch(db);
+                        cartSnapshot.forEach(doc => {
+                            batch.delete(doc.ref);
+                        });
+                        await batch.commit();
+                        console.log("Carrito vaciado.");
+
+                        // Mostrar un mensaje de confirmación al usuario y cerrar modales
+                        showToast('¡Pedido confirmado! Se abrirá un chat de WhatsApp para completar el proceso.');
+                        toggleModal(checkoutFormModal, false);
+                        window.location.hash = 'productos';
+
+                    } catch (e) {
+                        console.error("Error al procesar el pedido:", e);
+                        showToast("Hubo un error al procesar tu pedido. Por favor, inténtalo de nuevo.");
+                    }
+                });
+            }
+
+            // --- EFECTOS DE UI ---
+            
+            // Sticky Header Shrink Effect
+            const shrinkThreshold = 50;
+            window.addEventListener('scroll', () => {
+                if (window.scrollY > shrinkThreshold) {
+                    mainHeader.classList.add('shrink');
+                } else {
+                    mainHeader.classList.remove('shrink');
+                }
+            });
+
+            // Contact Form Submission (Frontend only)
+            const contactForm = document.getElementById('contactForm');
+            if (contactForm) {
+                contactForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    console.log('Formulario enviado');
+                    const successMessage = document.createElement('div');
+                    successMessage.textContent = '¡Gracias por tu mensaje! AVV se pondrá en contacto pronto. ✨';
+                    successMessage.className = 'mt-6 p-4 bg-green-200 text-green-800 rounded-lg text-center font-bold';
+                    contactForm.parentNode.insertBefore(successMessage, contactForm.nextSibling);
+
+                    contactForm.reset();
+                    setTimeout(() => {
+                        successMessage.remove();
+                    }, 5000);
+                });
+            }
+
+            // Toggle para el menú móvil
+            menuButton.addEventListener('click', () => {
+                mobileMenu.classList.toggle('hidden');
+            });
+        });
+
+    </script>
+</head>
+<body class="min-h-screen p-4 bg-gradient-to-br from-secondary to-primary text-textdark">
+
+    <header id="mainHeader" class="header-bg text-textlight p-6 shadow-lg sticky top-0 z-50">
+        <div class="container mx-auto flex flex-col md:flex-row justify-between items-center">
+            <a href="#inicio" class="text-4xl md:text-5xl font-bold text-textlight rounded-lg p-2 transition duration-300 transform hover:scale-105 animate-bounce-in logo-text">
+                <span style="display: inline-block; transform: rotate(-5deg);">🌈⭐</span> El Mundo de las Cajitas <span style="display: inline-block; transform: rotate(5deg);">✨⭐</span>
+            </a>
+            <button id="menuButton" class="md:hidden text-gray-600 hover:text-primary">
+                <svg class="w-8 h-8 text-textlight" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+            </button>
+            <nav id="navItemsWrapper" class="mt-4 md:mt-0 flex flex-wrap justify-center gap-4">
+                <a href="#inicio" class="nav-link text-lg font-semibold px-4 py-2 rounded-lg bg-textlight text-primary hover:bg-white hover:text-secondary transition duration-300">Inicio</a>
+                <a href="#productos" class="nav-link text-lg font-semibold px-4 py-2 rounded-lg bg-textlight text-primary hover:bg-white hover:text-secondary transition duration-300">Mis Kits Especiales</a>
+                <a href="#contacto" class="nav-link text-lg font-semibold px-4 py-2 rounded-lg bg-textlight text-primary hover:bg-white hover:text-secondary transition duration-300">Contacto</a>
+                <a href="#mensaje-especial" class="nav-link text-lg font-semibold px-4 py-2 rounded-lg bg-textlight text-primary hover:bg-white hover:text-secondary transition duration-300">Mensaje Especial</a>
+            </nav>
+        </div>
+        <div id="mobileMenu" class="md:hidden mt-4 hidden">
+            <nav class="flex flex-col space-y-2">
+                <a href="#inicio" class="nav-link text-gray-600 hover:text-primary p-2 rounded-md bg-textlight">Inicio</a>
+                <a href="#productos" class="nav-link text-gray-600 hover:text-primary p-2 rounded-md bg-textlight">Mis Kits Especiales</a>
+                <a href="#contacto" class="nav-link text-gray-600 hover:text-primary p-2 rounded-md bg-textlight">Contacto</a>
+                <a href="#mensaje-especial" class="nav-link text-gray-600 hover:text-primary p-2 rounded-md bg-textlight">Mensaje Especial</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Botón flotante del carrito -->
+    <button id="cartButtonFloat" class="flex items-center">
+        <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5.4M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 0a2 2 0 100 4 2 2 0 000-4z"></path></svg>
+        (<span id="cartItemCount">0</span>)
+    </button>
+    
+    <main class="container mx-auto px-4 py-12 flex-grow">
+
+        <section id="inicio" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary to-secondary text-textlight rounded-3xl shadow-xl p-8 mb-16 animate-bounce-in">
+            <div class="text-center max-w-3xl">
+                <img src="https://placehold.co/150x150/FFC0CB/FFFFFF?text=Foto+de+AVV" alt="Foto de AVV" class="rounded-full w-40 h-40 mx-auto mb-6 border-4 border-textlight shadow-lg object-cover">
+                <h1 class="text-5xl md:text-7xl font-bold mb-4 drop-shadow-lg">
+                    ¡Hola! Soy <span class="text-accent">AVV</span>
+                </h1>
+                <p class="text-xl md:text-3xl mb-8 leading-relaxed">
+                    Tengo <span class="font-bold">10</span> años y este es mi pequeño negocio donde hago pedidos de
+                    <span class="font-bold text-accent">¡kits especiales!</span> con mucho amor y alegría.
+                    <br>
+                    ¡Espero que te gusten mis creaciones! <span class="text-2xl">😊🎨🍬</span>
+                </p>
+                <a href="#productos" class="btn-fun text-2xl inline-block mb-10">¡Explora mis Creaciones! ⭐</a>
+            </div>
+        </section>
+
+        <section id="productos" class="py-12 bg-white rounded-3xl shadow-xl p-8 mb-16">
+            <h2 class="text-4xl font-bold text-center text-textdark mb-10">✨ Mis Dulces Creaciones ✨</h2>
+            <p class="text-xl text-center text-textdark mb-8">Cada kit es preparado con mucho cariño y con la ilusión de que te guste. ¡También hago vídeos especiales! 🎉</p>
+            
+            <div id="loading-message" class="text-center text-2xl font-bold text-textdark py-10">
+                Cargando mis creaciones mágicas...
+            </div>
+            
+            <div id="products-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 hidden">
+                <!-- Los productos se inyectarán aquí dinámicamente desde Firestore -->
+            </div>
+        </section>
+
+        <section id="contacto" class="py-12 bg-white rounded-3xl shadow-xl p-8 mb-16">
+            <h2 class="text-4xl font-bold text-center text-textdark mb-8">💌 ¡Hablemos! Contáctame 💌</h2>
+            <div class="max-w-xl mx-auto text-center">
+                <p class="text-xl text-textdark mb-6">Si tienes alguna pregunta o quieres algo especial, ¡mamá/papá te ayudará a contactarme!</p>
+
+                <form id="contactForm" class="space-y-6 bg-secondary p-8 rounded-2xl shadow-inner">
+                    <div>
+                        <label for="contact-name" class="block text-textlight text-xl font-semibold mb-2">Tu Nombre:</label>
+                        <input type="text" id="contact-name" name="name" class="w-full p-4 rounded-xl border-2 border-primary focus:outline-none focus:ring-4 focus:ring-accent text-lg" placeholder="Tu nombre" required>
+                    </div>
+                    <div>
+                        <label for="contact-email" class="block text-textlight text-xl font-semibold mb-2">Tu Correo:</label>
+                        <input type="email" id="contact-email" name="email" class="w-full p-4 rounded-xl border-2 border-primary focus:outline-none focus:ring-4 focus:ring-accent text-lg" placeholder="tu@email.com" required>
+                    </div>
+                    <div>
+                        <label for="contact-message" class="block text-textlight text-xl font-semibold mb-2">Tu Mensaje:</label>
+                        <textarea id="contact-message" name="message" rows="6" class="w-full p-4 rounded-xl border-2 border-primary focus:outline-none focus:ring-4 focus:ring-accent text-lg" placeholder="Escribe tu mensaje aquí... ¡Me encanta leerlos!" required></textarea>
+                    </div>
+                    <button type="submit" class="btn-fun w-full text-2xl">¡Enviar Mensaje Mágico! ✨</button>
+                </form>
+
+                <div class="text-center mt-10 space-y-6">
+                    <p class="text-textdark text-xl font-semibold">O contacta directamente:</p>
+                    <p class="text-2xl flex items-center justify-center text-textdark">
+                        <span class="mr-3 text-green-500 text-4xl">&#x1F4AC;</span> <a href="https://wa.me/34665241647" target="_blank" class="text-primary hover:underline font-bold transition duration-300">WhatsApp de Mamá/Papá: +34 665 24 16 47</a>
+                    </p>
+                    <p class="text-2xl flex items-center justify-center text-textdark">
+                        <span class="mr-3 text-blue-500 text-4xl">&#x2709;&#xfe0f;</span> <a href="mailto:avvtiendamagica@gmail.com" class="text-primary hover:underline font-bold transition duration-300">Correo Mágico: avvtiendamagica@gmail.com</a>
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <section id="mensaje-especial" class="py-12 bg-accent rounded-3xl shadow-xl p-8 mb-16 text-center text-textlight">
+            <h2 class="text-4xl md:text-5xl font-bold mb-8 drop-shadow-lg">✨ ¡Un Mensaje Especial para Ti! ✨</h2>
+            <div class="max-w-2xl mx-auto bg-white p-6 rounded-2xl shadow-lg border-4 border-primary">
+                <img src="https://placehold.co/600x400/957DAD/FFFFFF?text=Dibujo+Especial+AVV" alt="Dibujo especial de AVV" class="w-full h-auto object-cover rounded-xl mb-6 border-2 border-textdark shadow-md">
+                <p class="text-textdark text-xl md:text-2xl leading-relaxed font-semibold">
+                    "¡Gracias por visitar mi tienda! Cada creación la hago con mucho cariño y con la ilusión de que te guste tanto como a mí hacerla. ¡Eres genial!"
+                    <br><br>
+                    Con mucho amor, <br>
+                    <span class="text-primary font-extrabold text-3xl">AVV</span>
+                    <br>
+                    <span class="text-gray-500 text-sm">(Mi firma secreta 😉)</span>
+                </p>
+            </div>
+            <div class="mt-8 text-center text-sm text-textdark">
+                <p id="user-id-display">Cargando ID mágica...</p>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="bg-primary text-textlight p-8 rounded-t-3xl shadow-inner">
+        <div class="container mx-auto text-center md:flex md:justify-between md:items-center">
+            <p class="mb-4 md:mb-0 text-lg">&copy; 2025 El Mundo de las Cajitas. ¡Todo hecho con amor y alegría! ❤️</p>
+            <div class="flex justify-center space-x-6">
+                <a href="https://instagram.com/tucuenta" target="_blank" class="text-gray-300 hover:text-accent transition duration-300 transform hover:scale-110" aria-label="Instagram">
+                    <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12.315 2c2.43 0 2.715.01 3.653.047 1.05.043 1.638.203 2.18.42 1.347.537 2.345 1.407 2.776 2.776.217.542.377 1.13.42 2.18.037.938.047 1.223.047 3.653v.01c0 2.43.01 2.715-.047 3.653-.043 1.05-.203 1.638-.42 2.18-1.047 1.347-1.407 2.345-2.776 2.776-.542.217-1.13.377-2.18.42-.938.037-1.223.047-3.653.047h-.01zM12 1.092c2.81 0 3.14.011 4.247.051 1.144.043 1.838.217 2.417.447 1.543.593 2.651 1.701 3.245 3.245.23.58.404 1.274.447 2.417.04 1.107.051 1.437.051 4.247v.01c0 2.81-.011 3.14-.051 4.247-.043 1.144-.217 1.838-.447 2.417-1.543 1.543-1.701 2.651-3.245 3.245-.58.23-1.274.404-2.417-.447-1.107-.04-1.437-.051-4.247-.051v-.01c0-2.81.011-3.14.051-4.247.043 1.144.217 1.838.447 2.417 1.047 1.543 1.701 2.651 3.245-3.245.58-.23 1.274-.404 2.417-.447 1.107-.04-1.437-.051-4.247-.051z" clip-rule="evenodd"></path></svg>
+                </a>
+                <a href="https://facebook.com/tucuenta" target="_blank" class="text-gray-300 hover:text-accent transition duration-300 transform hover:scale-110" aria-label="Facebook">
+                    <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.872v-7.872H7.5V12h2.938V9.742c0-2.909 1.76-4.509 4.377-4.509 1.249 0 2.378.223 2.378.223v2.64H15.8c-1.42 0-1.854.88-1.854 1.789V12h3.293l-.527 2.001h-2.766v7.872C18.343 21.128 22 16.991 22 12z"></path></svg>
+                </a>
+                <a href="https://twitter.com/tucuenta" target="_blank" class="text-gray-300 hover:text-accent transition duration-300 transform hover:scale-110" aria-label="Twitter">
+                    <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24"><path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.79-1.574 2.153-2.724-.951.564-2.005.974-3.127 1.195-.89-.944-2.172-1.535-3.594-1.535-2.718 0-4.918 2.201-4.918 4.918 0 .386.044.762.128 1.125-4.094-.205-7.72-2.165-10.155-5.138-.424.724-.666 1.564-.666 2.463 0 1.707.869 3.217 2.185 4.094-.807-.026-1.566-.247-2.228-.616v.062c0 2.38 1.69 4.377 3.93 4.82-.41.111-.843.17-1.287.17-.315 0-.622-.03-.92-.087.623 1.947 2.434 3.374 4.577 3.413-1.68 1.317-3.805 2.106-6.102 2.106-.396 0-.786-.023-1.168-.068 2.179 1.397 4.768 2.212 7.548 2.212 9.052 0 13.99-7.497 13.99-13.987 0-.21-.005-.419-.014-.628.96-.695 1.796-1.563 2.458-2.559z"></path></svg>
+                </a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Modales (pop-ups) are hidden by default -->
+    <div id="productModal" class="modal">
+        <div class="modal-content relative text-center md:flex md:items-start md:text-left gap-8">
+            <span class="close-btn">&times;</span>
+            <div class="w-full md:w-1/2 flex justify-center">
+                <img id="product-detail-image" src="" alt="Imagen del Kit" class="w-full h-auto object-cover rounded-3xl shadow-lg border-4 border-accent">
+            </div>
+            <div class="w-full md:w-1/2 mt-6 md:mt-0">
+                <h2 id="product-detail-name" class="text-4xl font-bold text-textdark mb-4"></h2>
+                <p id="product-detail-price" class="text-5xl font-extrabold text-primary mb-6"></p>
+                <p id="product-detail-description" class="text-xl leading-relaxed text-textdark mb-8"></p>
+                <div id="product-options-container" class="my-6">
+                    <label for="product-options" class="block text-textdark text-xl font-bold mb-2">Selecciona una opción:</label>
+                    <select id="product-options" class="w-full p-3 rounded-lg border-2 border-gray-300 focus:outline-none focus:ring-4 focus:ring-accent">
+                        <option value="" disabled selected>-- Elige una opción --</option>
+                    </select>
+                </div>
+                <div class="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
+                    <button id="addToCartDetailBtn" class="btn-fun flex items-center justify-center px-6 py-3" disabled>
+                        <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5.4M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 0a2 2 0 100 4 2 2 0 000-4z"></path></svg>
+                        Añadir a mi Cesta
+                    </button>
+                    <button id="closeProductModal" class="btn-fun flex items-center justify-center px-6 py-3 bg-secondary text-textdark border-secondary hover:bg-white hover:text-primary">
+                        Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="cartModal" class="modal">
+        <div class="modal-content max-w-2xl mx-auto p-6 relative">
+            <span class="close-btn">&times;</span>
+            <h2 class="text-4xl font-bold text-center text-textdark mb-10">🛒 Tu Cesta Mágica 🛒</h2>
+            <div id="cart-items-container" class="bg-gray-50 p-6 rounded-2xl shadow-inner">
+                <p class="text-center text-gray-500 text-lg" id="empty-cart-message">Tu cesta está vacía. ¡Añade algunos kits!</p>
+            </div>
+            <div id="cart-summary" class="mt-6">
+                <div class="flex justify-between items-center text-xl font-bold text-textdark mb-4">
+                    <span>Subtotal:</span>
+                    <span><span id="cart-total-amount">€0.00</span></span>
+                </div>
+                <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                    <button id="clearCartBtn" class="btn-fun px-6 py-3 bg-red-400 border-red-500 hover:bg-red-500 hover:border-red-600">Vaciar Cesta</button>
+                    <button id="checkoutBtn" class="btn-fun px-6 py-3">Pagar Ahora</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Nuevo: Modal del Formulario de Pago -->
+    <div id="checkoutFormModal" class="modal">
+        <div class="modal-content max-w-2xl mx-auto p-6 relative bg-secondary text-textdark rounded-3xl shadow-lg">
+            <span class="close-btn">&times;</span>
+            <h2 class="text-3xl font-bold text-center text-textdark mb-6">📝 ¡Casi listo! Datos de Envío 📝</h2>
+            <form id="checkoutForm" class="space-y-4">
+                <div>
+                    <label for="fullName" class="block text-textdark font-semibold mb-1">Nombre Completo:</label>
+                    <input type="text" id="fullName" name="fullName" class="w-full p-3 rounded-lg border-2 border-primary focus:outline-none focus:ring-4 focus:ring-accent" required>
+                </div>
+                <div>
+                    <label for="address" class="block text-textdark font-semibold mb-1">Dirección (Calle, Ciudad, Provincia):</label>
+                    <input type="text" id="address" name="address" class="w-full p-3 rounded-lg border-2 border-primary focus:outline-none focus:ring-4 focus:ring-accent" required>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label for="houseNumber" class="block text-textdark font-semibold mb-1">Nº de Casa:</label>
+                        <input type="text" id="houseNumber" name="houseNumber" class="w-full p-3 rounded-lg border-2 border-primary focus:outline-none focus:ring-4 focus:ring-accent" required>
+                    </div>
+                    <div>
+                        <label for="floorNumber" class="block text-textdark font-semibold mb-1">Nº de Piso/Puerta (opcional):</label>
+                        <input type="text" id="floorNumber" name="floorNumber" class="w-full p-3 rounded-lg border-2 border-primary focus:outline-none focus:ring-4 focus:ring-accent">
+                    </div>
+                </div>
+                <div>
+                    <label for="postalCode" class="block text-textdark font-semibold mb-1">Código Postal:</label>
+                    <input type="text" id="postalCode" name="postalCode" class="w-full p-3 rounded-lg border-2 border-primary focus:outline-none focus:ring-4 focus:ring-accent" required>
+                </div>
+                <div>
+                    <label for="email" class="block text-textdark font-semibold mb-1">Correo Electrónico:</label>
+                    <input type="email" id="email" name="email" class="w-full p-3 rounded-lg border-2 border-primary focus:outline-none focus:ring-4 focus:ring-accent" required>
+                </div>
+                <div>
+                    <label for="phoneNumber" class="block text-textdark font-semibold mb-1">Número de Teléfono:</label>
+                    <input type="tel" id="phoneNumber" name="phoneNumber" class="w-full p-3 rounded-lg border-2 border-primary focus:outline-none focus:ring-4 focus:ring-accent" required>
+                </div>
+                <button type="submit" id="confirmPaymentBtn" class="btn-fun w-full mt-4 text-xl">Confirmar y Pagar</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Mensaje de confirmación (toast) -->
+    <div id="addToCartToast" class="add-to-cart-message"></div>
+
+</body>
+</html>
